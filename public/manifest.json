@@ -1,0 +1,17 @@
+{
+  "name": "Vinys — Adaptive Therapeutic Yoga",
+  "short_name": "Vinys",
+  "description": "Structured, adaptive yoga sessions designed around your condition.",
+  "start_url": "/",
+  "display": "standalone",
+  "background_color": "#FAF7F0",
+  "theme_color": "#FAF7F0",
+  "orientation": "portrait-primary",
+  "icons": [
+    {
+      "src": "/favicon.png",
+      "sizes": "48x48",
+      "type": "image/png"
+    }
+  ]
+}

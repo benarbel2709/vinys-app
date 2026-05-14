@@ -1,0 +1,17 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 180 48" width="180" height="48">
+  <defs>
+    <style>
+      @import url('https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@500;600&amp;display=swap');
+    </style>
+  </defs>
+  
+  <!-- Arc mark — elegant spinal/sail curve -->
+  <path d="M 22 8 C 10 14 10 34 22 40" fill="none" stroke="#0E1A2A" stroke-width="2.5" stroke-linecap="round"/>
+  
+  <!-- Wordmark: "Vel" in navy -->
+  <text x="34" y="33" font-family="Plus Jakarta Sans, -apple-system, BlinkMacSystemFont, Helvetica Neue, sans-serif" font-weight="500" font-size="22" letter-spacing="0.01em" fill="#0E1A2A">Vel</text>
+  
+  <!-- Wordmark: "a" in gold -->
+  <text x="86" y="33" font-family="Plus Jakarta Sans, -apple-system, BlinkMacSystemFont, Helvetica Neue, sans-serif" font-weight="500" font-size="22" letter-spacing="0.01em" fill="#B5963E">a</text>
+</svg>

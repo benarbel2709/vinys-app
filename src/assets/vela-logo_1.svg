@@ -1,0 +1,19 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 104 48" width="208" height="96">
+  <!-- 
+    VELA Logo
+    Font: Plus Jakarta Sans 500
+    Navy: #0E1A2A | Gold accent: #B5963E
+    Background: transparent (works on #F6F5F3 off-white)
+  -->
+
+  <!-- Arc mark: elegant curved stroke (sail / spinal arc) -->
+  <path d="M 20 7 C 7 13 7 35 20 41" fill="none" stroke="#0E1A2A" stroke-width="2.8" stroke-linecap="round"/>
+
+  <!-- "Vel" in dark navy -->
+  <text x="30" y="31" font-family="Plus Jakarta Sans, -apple-system, BlinkMacSystemFont, Helvetica Neue, Arial, sans-serif" font-weight="500" font-size="22" fill="#0E1A2A" letter-spacing="0.01em" dominant-baseline="auto">Vel</text>
+
+  <!-- "a" in gold — positioned at x = 30 + 32.3 = 62.3 -->
+  <text x="62" y="31" font-family="Plus Jakarta Sans, -apple-system, BlinkMacSystemFont, Helvetica Neue, Arial, sans-serif" font-weight="500" font-size="22" fill="#B5963E" letter-spacing="0.01em" dominant-baseline="auto">a</text>
+
+</svg>

@@ -2,6 +2,26 @@ import { useState, useEffect, useCallback, useRef } from "react";
 import { useTTS } from "@/hooks/useTTS";
 import BrandLogo from "@/components/BrandLogo";
 import { Volume2, VolumeX, Play, ChevronRight, Check, RotateCcw, ArrowLeft } from "lucide-react";
+import { getExerciseVideoSources } from "@/lib/exerciseVideoUrl";
+
+// Maps LB posture's descriptive id (knee-hug, sphinx, etc.) → exercise_videos.exercise_id (lb_p1 … lb_p9).
+// HIP/KNEE/ANKLE/NECK/UBACK/WRIST/SHLDR postures' ids already follow the *_pN convention so they
+// resolve directly via getExerciseVideoSources(posture.id) — no mapping needed.
+const LB_POSTURE_TO_EXERCISE_ID = {
+  "knee-hug": "lb_p1",
+  "pelvic-tilt": "lb_p2",
+  "cat-cow": "lb_p3",
+  "sphinx": "lb_p4",
+  "bird-dog": "lb_p5",
+  "bridge": "lb_p6",
+  "trikonasana": "lb_p7",
+  "hip-hinge": "lb_p8",
+  "supine-twist": "lb_p9",
+};
+function resolveVideoExerciseId(posture) {
+  if (!posture) return null;
+  return LB_POSTURE_TO_EXERCISE_ID[posture.id] || posture.id || null;
+}
 const universalVideo = "";
 
 const fadeInStyle = { animation: "fadeIn 0.3s ease" };
@@ -253,20 +273,248 @@ const HIP_POSTURES = [
   { id: "hip_p9", name: "Warrior I → Warrior III", subtitle: "Virabhadrasana", grad: ["#DCC8B0", "#C0A484"], time: "~75 sec", conditional: false, double_score: false, videoId: null, how: "From Warrior I, slowly shift weight forward and extend back leg into Warrior III. Hands on wall for balance if needed. Both sides.", qs: [{ id: "hip_p9q1", text: "How did your hip respond to Warrior?", opts: [{ t: "Smooth and controlled", sig: {} }, { t: "Hard to control", sig: { ST: 1 } }, { t: "Tightness in hip", sig: { MO: 1 } }, { t: "Pain in hip or buttock", sig: { LA: 1, PO: 1 } }, { t: "Could not maintain balance", sig: { ST: 1 } }] }] },
 ];
 
-// --- KNEE POSTURES ------------------------------------------------------------
-const KNEE_POSTURES = [
-  { id: "knee_p1", name: "Supine Knee Hug", subtitle: "Single Leg", grad: ["#A8CCCA", "#6AA8A4"], time: "~45 sec", conditional: false, double_score: false, videoId: null, how: "Lie on your back. Draw one knee toward your chest. Keep the other leg flat on the floor. Hold 4 breaths. Switch sides.", qs: [{ id: "knee_p1q1", text: "How does your knee feel when drawn toward your chest?", opts: [{ t: "Comfortable stretch", sig: {} }, { t: "Tightness behind the knee", sig: { PO: 1, MO: 1 } }, { t: "Pain behind the knee", sig: { PO: 1 } }, { t: "Pain in front of the knee", sig: { PA: 1 } }, { t: "Pain in hip or lower back", sig: {}, xover: true }, { t: "No sensation", sig: {} }] }] },
-  { id: "knee_p2", name: "Standing Knee Extension", subtitle: "Terminal Extension Screen", grad: ["#B4D0B0", "#80B07C"], time: "~45 sec", conditional: false, double_score: false, videoId: null, how: "Stand with soft knees. Slowly straighten one leg fully. Hold 3 seconds. Release. Repeat 3× each side.", qs: [{ id: "knee_p2q1", text: "How does the knee feel at full extension?", opts: [{ t: "Easy and comfortable", sig: {} }, { t: "Tightness behind the knee", sig: { PO: 1, MO: 1 } }, { t: "Pain behind the knee", sig: { PO: 1 } }, { t: "Pain in front of the knee", sig: { PA: 1 } }, { t: "Hyperextension sensation", sig: { PO: 1 } }, { t: "Could not fully straighten", sig: { MO: 1 } }] }] },
-  { id: "knee_p3", name: "Chair Pose", subtitle: "Utkatasana  ★ ×2", grad: ["#D0BCA8", "#B09880"], time: "~60 sec", conditional: false, double_score: true, videoId: null, how: "Round 1: feet together. Round 2: feet hip-width. Lower hips as far as comfortable — stop immediately if sharp pain. Hold 3 breaths each round.", qs: [{ id: "knee_p3q1", text: "How did your knees feel in the squat, and did they cave inward in round 2?", opts: [{ t: "Strong and stable", sig: {} }, { t: "Pain behind or around the kneecap", sig: { PA: 2 } }, { t: "Knees felt unstable or shaky", sig: { ST: 2 } }, { t: "Trembling in the front of the knee", sig: { ST: 2 } }, { t: "Knees caved inward (round 2)", sig: { ST: 2 } }, { t: "Knees stayed aligned (round 2)", sig: {} }, { t: "Pain in hip or groin", sig: {}, xover: true }] }] },
-  { id: "knee_p4", name: "Low Lunge", subtitle: "Anjaneyasana", grad: ["#C4B8D4", "#9880B4"], time: "~75 sec", conditional: false, double_score: false, videoId: null, how: "Step one foot forward into a deep lunge, back knee on the floor. Front knee at 90°. Hold 4 breaths each side.", qs: [{ id: "knee_p4q1", text: "How did your front knee feel in the deep bend?", opts: [{ t: "Comfortable", sig: {} }, { t: "Pain on the inner side of the knee", sig: { ME: 1 } }, { t: "Pain on the outer side of the knee", sig: { LA: 1 } }, { t: "Pain in front of the knee", sig: { PA: 1 } }, { t: "Tightness limiting the bend", sig: { MO: 1 } }, { t: "Pain in hip or groin", sig: {}, xover: true }] }, { id: "knee_p4q2", text: "How did your back knee feel on the ground?", opts: [{ t: "No issue", sig: {} }, { t: "Pressure on kneecap", sig: { PA: 1 } }, { t: "Pain behind the knee", sig: { PO: 1 } }, { t: "Trembling or instability", sig: { ST: 1 } }, { t: "General discomfort", sig: {} }] }] },
-  { id: "knee_p5", name: "Supported Virasana", subtitle: "Graduated — stop if sharp pain", grad: ["#B8CCDC", "#84A4C0"], time: "~60 sec", conditional: false, double_score: false, videoId: null, how: "Stand in 6-point stance (hands, knees, shins). Slowly sit hips back toward heels only as far as comfortable — stop immediately if sharp pain or pressure in the knee.", qs: [{ id: "knee_p5q1", text: "How far could you lower your hips comfortably?", opts: [{ t: "Hips to heels — no pain", sig: {} }, { t: "Hips to heels — with pain or pressure in the knee", sig: { ME: 1, LA: 1 } }, { t: "Halfway — stopped due to knee pain", sig: { ME: 1, LA: 1, MO: 1 } }, { t: "Limited by ankle position, not knee", sig: { MO: 1 } }, { t: "Significant knee pain prevented movement", sig: { ME: 1, LA: 1, ST: 1 } }] }] },
-  { id: "knee_p6", name: "Standing Forward Fold", subtitle: "", grad: ["#B4D4C4", "#7CB898"], time: "~45 sec", conditional: false, double_score: false, videoId: null, how: "Stand feet hip-width. Slowly fold forward, knees slightly bent if needed. Let arms hang. Hold 4 breaths. Roll back up slowly.", qs: [{ id: "knee_p6q1", text: "What did you notice behind your knees or around the kneecap?", opts: [{ t: "Pleasant stretch — no pain", sig: {} }, { t: "Tightness behind the knee — limiting movement", sig: { MO: 1 } }, { t: "Pain behind the knee", sig: { PO: 1 } }, { t: "Pain behind or around the kneecap", sig: { PA: 1 } }, { t: "No sensation", sig: {} }] }] },
-  { id: "knee_p7", name: "High Lunge", subtitle: "Loaded Single-Leg  ★ ×2", grad: ["#C8B8DC", "#A090C0"], time: "~60 sec", conditional: false, double_score: true, videoId: null, how: "Step one foot forward. Front knee bends to 90°, back leg straight. Hold 4 breaths under load. Both sides.", qs: [{ id: "knee_p7q1", text: "How did your front knee feel under load?", opts: [{ t: "Strong and stable", sig: {} }, { t: "Pain behind or around the kneecap", sig: { PA: 2 } }, { t: "Knee felt unstable or gave way", sig: { ST: 2 } }, { t: "Trembling or instability", sig: { ST: 2 } }, { t: "Pain in hip or groin", sig: {}, xover: true }] }] },
-  { id: "knee_p8", name: "Tree Pose", subtitle: "Vrksasana", grad: ["#A8CCCA", "#6AA8A4"], time: "~60 sec", conditional: false, double_score: false, videoId: null, how: "Stand on one leg. Place other foot on inner calf or ankle. Hold 4 breaths each side.", qs: [{ id: "knee_p8q1", text: "How did your standing knee feel during balance?", opts: [{ t: "Stable", sig: {} }, { t: "Wobble or instability", sig: { ST: 1 } }, { t: "Pain on inner knee", sig: { ME: 1 } }, { t: "Pain on outer knee", sig: { LA: 1 } }] }] },
-  { id: "knee_p9", name: "Single Leg Mini Squat", subtitle: "Dynamic Stability", grad: ["#B4D0C0", "#7CB898"], time: "~45 sec", conditional: false, double_score: false, videoId: null, how: "Stand on one leg. Slowly bend knee to a comfortable depth — hands on wall if needed. 5 controlled reps each side.", qs: [{ id: "knee_p9q1", text: "How did the knee behave during the movement?", opts: [{ t: "Deep and controlled — knee stayed aligned", sig: {} }, { t: "Moderate bend — knee stayed aligned", sig: {} }, { t: "Knee caved inward", sig: { ST: 1 } }, { t: "Trembling or weakness limited the movement", sig: { ST: 1 } }, { t: "Pain prevented the movement", sig: { ME: 1, LA: 1, ST: 1 } }] }] },
-  { id: "knee_p10", name: "Warrior III", subtitle: "Virabhadrasana III", grad: ["#A8CCCA", "#6AA8A4"], time: "~60 sec", conditional: false, double_score: false, videoId: null, how: "Stand on one leg. Hinge forward and extend back leg behind you — hands on wall if needed. Hold 3 breaths. Both sides.", qs: [{ id: "knee_p10q1", text: "How did your standing knee respond to the forward lean?", opts: [{ t: "Smooth and controlled", sig: {} }, { t: "Hard to control", sig: { ST: 1 } }, { t: "Pain on outer knee", sig: { LA: 1 } }, { t: "Could not maintain balance", sig: { ST: 1 } }] }] },
-  { id: "knee_summary", name: "Session Check-in", subtitle: "", grad: ["#E4DDD6", "#C4B8B0"], time: "", conditional: false, double_score: false, videoId: null, isSummary: true, how: "", qs: [{ id: "knee_summary_q", text: "Compared to before the session, how does your knee feel now?", opts: [{ t: "Better — less pain or more comfortable", sig: {} }, { t: "No change", sig: {} }, { t: "Slightly worse — more discomfort", sig: {} }, { t: "Significantly worse — pain increased", sig: {} }, { t: "I had no pain to begin with", sig: {} }] }] },
+// --- KNEE POSTURES (v2) -------------------------------------------------------
+// Per VINYS_Knee_Diagnostic_v2_Spec.docx (Aviv, 2026-05-18). Replaces the v1
+// yoga-posture extraction model entirely (per spec section 10.1).
+//
+// Structure: 5 movement explorations M1–M5. M1–M4 are paired (Supported /
+// Independent variants share questions and scoring — see spec §3). M5 is a
+// single reflection (no variants).
+//
+// Signals (spec §2):
+//   LI = Load intolerance
+//   ST = Stability / trust deficit
+//   FL = Flexion sensitivity
+//   EX = Extension sensitivity
+//   MO = Mobility restriction
+//   NE = Neutral / unclear
+//
+// Videos live in exercise_videos under: knee_m1_supported, knee_m1_independent,
+// knee_m2_supported, knee_m2_independent, knee_m3_supported, knee_m3_independent,
+// knee_m4_supported, knee_m4_independent, knee_m5 (shared reflection scene).
+const KNEE_POSTURES_V2 = [
+  {
+    id: "knee_m1",
+    pairLabel: "M1 · Knee Loading",
+    pairKey: "pair_1",
+    name: "M1 · Knee Loading",
+    subtitle: "Notice load tolerance and asymmetry",
+    grad: ["#A8CCCA", "#6AA8A4"],
+    time: "~60 sec",
+    conditional: false,
+    double_score: false,
+    videoId: null, // resolved via active variant
+    variants: {
+      supported: {
+        videoExerciseId: "knee_m1_supported",
+        label: "Supported variant",
+        name: "Sit-to-Stand from Chair",
+        how: "Sit on a chair. Feet on the floor. Slowly stand up and sit back down. Hands may help if needed. 3–4 repetitions only.",
+      },
+      independent: {
+        videoExerciseId: "knee_m1_independent",
+        label: "Independent variant",
+        name: "Mini Squat",
+        how: "Stand comfortably. Bend the knees slightly into a small squat. No need to go deeply. 3–4 repetitions only.",
+      },
+    },
+    how: "Sit on a chair. Feet on the floor. Slowly stand up and sit back down. Hands may help if needed. 3–4 repetitions only.",
+    qs: [
+      { id: "knee_m1q1", text: "Did one knee feel more sensitive or uncomfortable?", opts: [
+        { t: "No", sig: {} },
+        { t: "Slightly", sig: { LI: 1 } },
+        { t: "Yes", sig: { LI: 2 }, asymmetry: true },
+      ]},
+      { id: "knee_m1q2", text: "Did you avoid putting weight into one side?", opts: [
+        { t: "No", sig: {} },
+        { t: "Slightly", sig: { ST: 1 } },
+        { t: "Yes", sig: { ST: 2 }, asymmetry: true },
+      ]},
+    ],
+  },
+  {
+    id: "knee_m2",
+    pairLabel: "M2 · Stability / Weight Acceptance",
+    pairKey: "pair_2",
+    name: "M2 · Stability / Weight Acceptance",
+    subtitle: "Compare sides — support is welcome",
+    grad: ["#B4D0B0", "#80B07C"],
+    time: "~60 sec",
+    conditional: false,
+    double_score: false,
+    videoId: null,
+    variants: {
+      supported: {
+        videoExerciseId: "knee_m2_supported",
+        label: "Supported variant",
+        name: "Weight Shift with Fingertip Support",
+        how: "Stand near a wall or chair. Lightly shift more weight into one foot. Then the other.",
+      },
+      independent: {
+        videoExerciseId: "knee_m2_independent",
+        label: "Independent variant",
+        name: "Single-Leg Stand",
+        how: "Stand on one foot for a few seconds (max 5–10 seconds). Support nearby is welcome.",
+      },
+    },
+    how: "Stand near a wall or chair. Lightly shift more weight into one foot. Then the other.",
+    qs: [
+      { id: "knee_m2q1", text: "Did one side feel less stable or trustworthy?", opts: [
+        { t: "No", sig: {} },
+        { t: "Slightly", sig: { ST: 1 } },
+        { t: "Yes", sig: { ST: 2 }, asymmetry: true },
+      ]},
+      { id: "knee_m2q2", text: "Did shifting weight increase discomfort?", opts: [
+        { t: "No", sig: {} },
+        { t: "Slightly", sig: { LI: 1 } },
+        { t: "Yes", sig: { LI: 2 } },
+      ]},
+    ],
+  },
+  {
+    id: "knee_m3",
+    pairLabel: "M3 · Knee Flexion Tolerance",
+    pairKey: "pair_3",
+    name: "M3 · Knee Flexion Tolerance",
+    subtitle: "Notice stiffness vs sensitivity — they read differently",
+    grad: ["#C4B8D4", "#9880B4"],
+    time: "~75 sec",
+    conditional: false,
+    double_score: false,
+    videoId: null,
+    variants: {
+      supported: {
+        videoExerciseId: "knee_m3_supported",
+        label: "Supported variant",
+        name: "Supine Knee-to-Chest",
+        how: "Lie on your back. Bring one knee gently toward the chest. Switch sides. If comfortable, bring both knees in together. No need to pull deeply.",
+      },
+      independent: {
+        videoExerciseId: "knee_m3_independent",
+        label: "Independent variant",
+        name: "Tabletop → Shift Back",
+        how: "Come to hands and knees. Slowly begin shifting the hips slightly back toward the heels. Only move into a comfortable range. No need to sit fully down.",
+      },
+    },
+    how: "Lie on your back. Bring one knee gently toward the chest. Switch sides. If comfortable, bring both knees in together. No need to pull deeply.",
+    qs: [
+      // M3 Q1 is the only place in the assessment that distinguishes MO (stiffness without pain) from FL (flexion sensitivity). Do not infer MO elsewhere. (spec §5 M3)
+      { id: "knee_m3q1", text: "Did bending one knee feel different from the other?", opts: [
+        { t: "No", sig: {} },
+        { t: "Yes — stiff or restricted, but not painful", sig: { MO: 1 } },
+        { t: "Yes — sensitive or uncomfortable", sig: { FL: 2 }, asymmetry: true },
+      ]},
+      { id: "knee_m3q2", text: "Did deeper bending create discomfort or hesitation?", opts: [
+        { t: "No", sig: {} },
+        { t: "Slightly", sig: { FL: 1 } },
+        { t: "Yes", sig: { FL: 2 }, avoidDeepFlexion: true },
+      ]},
+    ],
+  },
+  {
+    id: "knee_m4",
+    pairLabel: "M4 · Extension Tolerance",
+    pairKey: "pair_4",
+    name: "M4 · Extension Tolerance",
+    subtitle: "Small movement only",
+    grad: ["#D0BCA8", "#B09880"],
+    time: "~45 sec",
+    conditional: false,
+    double_score: false,
+    videoId: null,
+    variants: {
+      supported: {
+        videoExerciseId: "knee_m4_supported",
+        label: "Supported variant",
+        name: "Seated Knee Extension",
+        how: "Sit on a chair. Slowly straighten one knee slightly. Then the other.",
+      },
+      independent: {
+        videoExerciseId: "knee_m4_independent",
+        label: "Independent variant",
+        name: "Standing Leg Extension / Heel Hover",
+        how: "Stand comfortably. Lift one heel slightly from the floor while lengthening through the knee. Small movement only.",
+      },
+    },
+    how: "Sit on a chair. Slowly straighten one knee slightly. Then the other.",
+    qs: [
+      { id: "knee_m4q1", text: "Did straightening the knee feel uncomfortable or limited?", opts: [
+        { t: "No", sig: {} },
+        { t: "Slightly", sig: { EX: 1 } },
+        { t: "Yes", sig: { EX: 2 }, avoidFullExtension: true },
+      ]},
+    ],
+  },
+  {
+    id: "knee_m5",
+    pairLabel: "M5 · Reflection",
+    pairKey: null, // no variant
+    name: "M5 · Reflection",
+    subtitle: "What stayed with you?",
+    grad: ["#E4DDD6", "#C4B8B0"],
+    time: "~30 sec",
+    conditional: false,
+    double_score: false,
+    videoId: null,
+    videoExerciseId: "knee_m5",
+    variants: null,
+    how: "A short pause. Take a breath. Then choose what felt most true during this check-in.",
+    qs: [
+      // EX is intentionally not scored from M5 (spec §5 M5). EX comes only from M4.
+      { id: "knee_m5q1", text: "What felt most true during this check-in?", opts: [
+        { t: "Bending felt sensitive", sig: { FL: 2 } },
+        { t: "Weight-bearing felt difficult", sig: { LI: 2 } },
+        { t: "One side felt unstable", sig: { ST: 2 }, asymmetry: true },
+        { t: "Movement felt stiff", sig: { MO: 2 } },
+        { t: "Nothing stood out clearly", sig: { NE: 2 } },
+      ]},
+    ],
+  },
+  {
+    // Irritability question (spec §7.1). Rendered specially — no video, no
+    // variants, asked once at the end of the assessment. Its answer drives
+    // loadCeilingMultiplier, restorative_weight, max_var_rank, and supported_only.
+    id: "knee_irritability",
+    name: "How did the movements feel overall?",
+    subtitle: "Final reflection",
+    grad: ["#E4DDD6", "#C4B8B0"],
+    time: "",
+    conditional: false,
+    double_score: false,
+    videoId: null,
+    variants: null,
+    isIrritabilityQ: true,
+    how: "",
+    qs: [
+      { id: "knee_irritability_q", text: "How did the movements feel overall?", opts: [
+        { t: "Comfortable", sig: {} },
+        { t: "Mild discomfort", sig: {} },
+        { t: "Moderate discomfort", sig: {} },
+        { t: "Strong discomfort", sig: {} },
+      ]},
+    ],
+  },
 ];
+
+// Safety-override option keywords — if the user picks one of these answers, the
+// safety override fires (spec §7.2). Currently encoded by literal option-text
+// match because all "strong" answers within knee v2 share the "Yes" label that
+// already produces high LI/ST/FL/EX signals. Safety override is therefore
+// triggered when any of the following is true after the assessment:
+//   - knee_m1q1 === "Yes"  (sharp sensitivity in loading)
+//   - knee_m2q1 === "Yes"  (instability during standing)
+//   - knee_m1q2 === "Yes"  (active weight avoidance — fear/avoidance pattern)
+// (See spec §7.2: Sharp pain / Fear during loading / Instability during standing.)
+const KNEE_V2_SAFETY_TRIGGERS = [
+  { qid: "knee_m1q1", val: "Yes", reason: "sharp_pain" },
+  { qid: "knee_m1q2", val: "Yes", reason: "fear_during_loading" },
+  { qid: "knee_m2q1", val: "Yes", reason: "instability_during_standing" },
+];
+
+// (v1 KNEE_POSTURES — knee_p1..knee_p10 with PA/ME/LA/PO signals — removed
+//  2026-05-18 per VINYS_Knee_Diagnostic_v2_Spec.docx §10.1. Knee routing now
+//  uses KNEE_POSTURES_V2 above with LI/ST/FL/EX/MO/NE signals via
+//  kneeAssessmentV2Scorer.)
 
 // --- ANKLE POSTURES -----------------------------------------------------------
 const ANKLE_POSTURES = [
@@ -341,7 +589,11 @@ const SHLDR_POSTURES = [
 // --- CROSSOVER MINI-SEQUENCES -------------------------------------------------
 const LB_MINI_IDS = ["knee-hug", "sphinx", "hip-hinge", "bridge", "supine-twist"];
 const HIP_MINI_IDS = ["hip_p1", "hip_p3", "hip_p5", "hip_p6", "hip_p8"];
-const KNEE_MINI_IDS = ["knee_p3", "knee_p4", "knee_p5", "knee_p8", "knee_p7"];
+// Knee v2 mini-sequence used by crossover (when another body-area diagnostic
+// detects knee involvement and routes a slimmed knee check). Aviv has not yet
+// specified which of M1–M5 belong in mini; defaulting to M1 (load), M2
+// (stability), M3 (flexion) — the 3 most diagnostic — plus M5 (reflection).
+const KNEE_MINI_IDS = ["knee_m1", "knee_m2", "knee_m3", "knee_m5"];
 const ANKLE_MINI_IDS = ["ankle_p2", "ankle_p3", "ankle_p4", "ankle_p5", "ankle_p6"];
 const NECK_MINI_IDS = ["neck_p1", "neck_p3", "neck_p5", "neck_p7", "neck_p10"];
 const UBACK_MINI_IDS = ["ub_p1", "ub_p3", "ub_p4", "ub_p6", "ub_p9"];
@@ -352,7 +604,7 @@ function getCrossoverPostures(fromArea) {
   // Phase 2 uses the SAME body area's postures, not the adjacent area
   if (fromArea === "LB") return LB_POSTURES.filter((p) => LB_MINI_IDS.includes(p.id));
   if (fromArea === "HIP") return HIP_POSTURES.filter((p) => HIP_MINI_IDS.includes(p.id));
-  if (fromArea === "KNEE") return KNEE_POSTURES.filter((p) => KNEE_MINI_IDS.includes(p.id));
+  if (fromArea === "KNEE") return KNEE_POSTURES_V2.filter((p) => KNEE_MINI_IDS.includes(p.id));
   if (fromArea === "ANKLE") return ANKLE_POSTURES.filter((p) => ANKLE_MINI_IDS.includes(p.id));
   if (fromArea === "NECK") return NECK_POSTURES.filter((p) => NECK_MINI_IDS.includes(p.id));
   if (fromArea === "UBACK") return UBACK_POSTURES.filter((p) => UBACK_MINI_IDS.includes(p.id));
@@ -708,6 +960,154 @@ function _finalize(scores, primary, area, sessionAnswers, dizziness_flag = false
   return { primary, secondary, confidence, reassess, scores, dizziness_flag, frozen_flag };
 }
 
+// ─── KNEE v2 SCORER ──────────────────────────────────────────────────────────
+// Per VINYS_Knee_Diagnostic_v2_Spec.docx §6-§8 (Aviv, 2026-05-18).
+// Inputs:
+//   sessionAnswers — map of question id → selected option text (knee_m1q1 etc.)
+//   variantChoices — final per-pair variant: { pair_1: "supported"|"independent", ... }
+//   variantSwitches — total switch count across all pairs (analytics only)
+//   irritabilityAnswer — text of the post-assessment "How did the movements feel overall?" answer
+// Output: spec §8.1 shape (primary_profile, secondary_profile, confidence_level,
+// irritability, asymmetry_flag, raw_signal, variant_choices, variant_switches,
+// flags, assessment_version, assessment_type). Also includes legacy-compatible
+// fields (primary, secondary, confidence, scores) for downstream summary render.
+function kneeAssessmentV2Scorer(sessionAnswers, variantChoices, variantSwitches, irritabilityAnswer) {
+  const profile_signal = { LI: 0, ST: 0, FL: 0, EX: 0, MO: 0, NE: 0 };
+  let asymmetry_flag = false;
+  let avoidDeepFlexion = false;
+  let avoidFullExtension = false;
+
+  for (const posture of KNEE_POSTURES_V2) {
+    for (const q of posture.qs) {
+      const ans = sessionAnswers[q.id];
+      if (!ans) continue;
+      const opt = q.opts.find((o) => o.t === ans);
+      if (!opt) continue;
+      if (opt.sig) {
+        for (const [profile, pts] of Object.entries(opt.sig)) {
+          profile_signal[profile] = (profile_signal[profile] || 0) + pts;
+        }
+      }
+      if (opt.asymmetry) asymmetry_flag = true;
+      if (opt.avoidDeepFlexion) avoidDeepFlexion = true;
+      if (opt.avoidFullExtension) avoidFullExtension = true;
+    }
+  }
+
+  // Spec §6.2 / §6.4 — primary profile with tie / low-signal fallbacks.
+  const ranked = Object.entries(profile_signal)
+    .filter(([k]) => k !== "NE")
+    .sort(([, a], [, b]) => b - a);
+  const neScore = profile_signal.NE || 0;
+  const [topKey, topScore] = ranked[0];
+  const countAtMax = ranked.filter(([, v]) => v === topScore && v > 0).length;
+
+  let primary_profile;
+  if (topScore <= 2 && neScore <= 2) {
+    // Spec §6.4: max_score ≤ 2 globally → NE
+    primary_profile = "NE";
+  } else if (countAtMax >= 3) {
+    // 3+ profiles tied at the top → NE
+    primary_profile = "NE";
+  } else if (neScore > topScore) {
+    primary_profile = "NE";
+  } else {
+    primary_profile = topKey;
+  }
+
+  // Spec §6.3 — secondary profile if second score is within 1 of primary
+  let secondary_profile = null;
+  const primaryScore = profile_signal[primary_profile] || 0;
+  for (const [p, sc] of ranked) {
+    if (p === primary_profile) continue;
+    if (sc > 0 && sc >= primaryScore - 1) { secondary_profile = p; break; }
+  }
+
+  // Spec §6.5 — confidence
+  const secondScore = ranked.find(([p]) => p !== primary_profile)?.[1] ?? 0;
+  const gap = primaryScore - secondScore;
+  let confidence_level;
+  if (primaryScore >= 4 && gap >= 2) confidence_level = "high";
+  else if (primaryScore >= 3 && gap >= 1) confidence_level = "medium";
+  else confidence_level = "low";
+
+  // Spec §7.1 — irritability + multipliers
+  const IRR_MAP = {
+    "Comfortable": { level: 1, loadCeilingMultiplier: 1.0, restorative_bonus: 0.0, max_var_rank: null, supported_only: false },
+    "Mild discomfort": { level: 2, loadCeilingMultiplier: 0.85, restorative_bonus: 0.10, max_var_rank: null, supported_only: false },
+    "Moderate discomfort": { level: 3, loadCeilingMultiplier: 0.65, restorative_bonus: 0.25, max_var_rank: 3, supported_only: false },
+    "Strong discomfort": { level: 4, loadCeilingMultiplier: 0.45, restorative_bonus: 0.40, max_var_rank: 2, supported_only: true },
+  };
+  const irr = IRR_MAP[irritabilityAnswer] || IRR_MAP["Comfortable"];
+
+  // Spec §7.2 — safety overrides (literal trigger matching)
+  let safety_flag = null;
+  const safetyTriggers = [];
+  for (const trig of KNEE_V2_SAFETY_TRIGGERS) {
+    if (sessionAnswers[trig.qid] === trig.val) safetyTriggers.push(trig.reason);
+  }
+  const safety_triggered = safetyTriggers.length > 0;
+  if (safety_triggered) safety_flag = "knee_safety_triggered";
+
+  // Spec §7.2 stacking rule: take the most conservative value across irritability + safety
+  const max_var_rank = (() => {
+    const vals = [];
+    if (irr.max_var_rank !== null) vals.push(irr.max_var_rank);
+    if (safety_triggered) vals.push(2);
+    return vals.length ? Math.min(...vals) : null;
+  })();
+  const supported_only = irr.supported_only || safety_triggered;
+  const restorative_weight = (() => {
+    let bonus = irr.restorative_bonus;
+    if (safety_triggered) bonus = Math.max(bonus, 0.30);
+    // Spec §8.3 variant_choices soft signal — 3+ supported pairs adds +0.05
+    const supportedCount = Object.values(variantChoices || {}).filter((v) => v === "supported").length;
+    if (supportedCount >= 3) bonus += 0.05;
+    return bonus; // E2 layers this on top of its baseline
+  })();
+  const session_intensity_cap = safety_triggered ? "low" : null;
+
+  const flags = {
+    avoidDeepFlexion: avoidDeepFlexion || safety_triggered,
+    avoidFullExtension: avoidFullExtension || (safety_triggered && (profile_signal.EX || 0) > 0),
+    avoidLoadedSingleLeg: safety_triggered,
+    supported_only,
+  };
+
+  const userProfileKnee = {
+    primary_profile,
+    secondary_profile,
+    confidence_level,
+    irritability: irr.level,
+    asymmetry_flag,
+    raw_signal: { ...profile_signal },
+    variant_choices: variantChoices || {},
+    variant_switches: variantSwitches || 0,
+    flags,
+    safety_flag,
+    safety_triggers: safetyTriggers,
+    load_ceiling_multiplier: irr.loadCeilingMultiplier,
+    restorative_weight,
+    max_var_rank,
+    session_intensity_cap,
+    assessment_version: "knee_v2",
+    assessment_type: "quick",
+  };
+
+  // Legacy-compatible fields for the existing summary screen (which expects
+  // {primary, secondary, confidence, scores}) — uppercase confidence to match
+  // existing convention (High/Medium/Low).
+  return {
+    ...userProfileKnee,
+    primary: primary_profile,
+    secondary: secondary_profile,
+    confidence: confidence_level.charAt(0).toUpperCase() + confidence_level.slice(1),
+    scores: profile_signal,
+    reassess: confidence_level === "low",
+    knee: userProfileKnee, // shape under user_profile.knee per spec §8.1
+  };
+}
+
 function checkCrossover(area, sessionAnswers) {
   const vals = Object.values(sessionAnswers);
   if (area === "HIP") {
@@ -720,14 +1120,11 @@ function checkCrossover(area, sessionAnswers) {
     return met >= 2 ? "LB" : null;
   }
   if (area === "KNEE") {
-    const hipQ = { knee_p3q1: "Pain in hip or groin", knee_p4q1: "Pain in hip or groin", knee_p7q1: "Pain in hip or groin" };
-    const hipCount = Object.entries(hipQ).filter(([k, v]) => sessionAnswers[k] === v).length;
-    const kneePainTerms = ["Pain behind or around the kneecap", "Pain on the inner side of the knee", "Pain on the outer side of the knee", "Pain in front of the knee", "Pain on inner knee", "Pain on outer knee"];
-    const noKnee = !vals.some((a) => kneePainTerms.includes(a));
-    const limitTerms = ["Tightness limiting the bend", "Could not fully straighten", "Halfway — stopped due to knee pain"];
-    const fullROM = !vals.some((a) => limitTerms.includes(a));
-    const met = [hipCount >= 2, noKnee, fullROM].filter(Boolean).length;
-    return met >= 2 ? "HIP" : null;
+    // Knee v2 questions do not include cross-area pain options (spec §5 — all
+    // options point at the knee profile signals only). Cross-over from knee
+    // to other body areas is disabled in v2; if the user's primary issue is
+    // upstream, they should re-enter the diagnostic from that area.
+    return null;
   }
   if (area === "ANKLE") {
     const kneeQ = { ankle_p2q1: "Pain in knees instead", ankle_p5q1: "Pain in knee", ankle_p6q1: "Pain in knee" };
@@ -799,7 +1196,7 @@ function buildActivePostures(area, allPostures, sessionAnswers, irritabilityLeve
 function getPosturesForArea(area) {
   if (area === "LB") return LB_POSTURES;
   if (area === "HIP") return HIP_POSTURES;
-  if (area === "KNEE") return KNEE_POSTURES;
+  if (area === "KNEE") return KNEE_POSTURES_V2;
   if (area === "ANKLE") return ANKLE_POSTURES;
   if (area === "NECK") return NECK_POSTURES;
   if (area === "UBACK") return UBACK_POSTURES;
@@ -943,6 +1340,55 @@ export default function VinysDiagnostic({ onComplete, initialArea = null }) {
 
   const [videoPlaying, setVideoPlaying] = useState(false);
   const transitioningRef = useRef(false);
+
+  // Knee v2 state (spec §3): paired variants per movement, with mid-movement
+  // switching. variantChoices stores the per-pair variant active at time of
+  // last answer; variantSwitches is the global switch counter for analytics.
+  // kneeShowingVariantChooser gates the variant-picker overlay (true on entry
+  // to a paired posture, false once user has confirmed and the video is playing).
+  const [kneeVariantChoices, setKneeVariantChoices] = useState({});
+  const [kneeVariantSwitches, setKneeVariantSwitches] = useState(0);
+  const [kneeCurrentVariant, setKneeCurrentVariant] = useState("supported");
+  const [kneeShowingVariantChooser, setKneeShowingVariantChooser] = useState(true);
+
+  // Resolved Bunny CDN URL for the current posture's demonstration video.
+  // null = no video uploaded for this exercise_id yet → component falls back to universalVideo.
+  const [postureVideoSrc, setPostureVideoSrc] = useState(null);
+  useEffect(() => {
+    let cancelled = false;
+    const posture = activePostures[postureIdx];
+    // Knee v2 paired posture: resolve via the active variant.
+    let exId;
+    if (posture?.variants && posture.variants[kneeCurrentVariant]) {
+      exId = posture.variants[kneeCurrentVariant].videoExerciseId;
+    } else if (posture?.videoExerciseId) {
+      exId = posture.videoExerciseId;
+    } else {
+      exId = resolveVideoExerciseId(posture);
+    }
+    if (!exId) { setPostureVideoSrc(null); return; }
+    getExerciseVideoSources(exId).then((srcs) => {
+      if (cancelled) return;
+      setPostureVideoSrc(srcs?.mp4 || null);
+    }).catch(() => { if (!cancelled) setPostureVideoSrc(null); });
+    return () => { cancelled = true; };
+  }, [postureIdx, activePostures, kneeCurrentVariant]);
+
+  // When entering a paired knee posture, show the variant chooser first and
+  // reset the active variant to "supported" (spec §3.1 default).
+  useEffect(() => {
+    const posture = activePostures[postureIdx];
+    if (!posture) return;
+    if (area !== "KNEE") return;
+    if (posture.variants) {
+      // Default to supported on entry; user can switch via Switch button.
+      setKneeCurrentVariant("supported");
+      setKneeShowingVariantChooser(true);
+    } else {
+      // M5 / irritability — no variant chooser.
+      setKneeShowingVariantChooser(false);
+    }
+  }, [postureIdx, area, activePostures]);
 
   const areaLabel = area ? AREA_CONFIG[area].label.toLowerCase() : "this area";
 
@@ -1343,6 +1789,13 @@ export default function VinysDiagnostic({ onComplete, initialArea = null }) {
       const newAnswers = { ...sessionAnswers, [q.id]: ansText };
       setSessionAnswers(newAnswers);
 
+      // Knee v2: record the active variant for this paired posture at the time
+      // of answering (spec §3.1 — variant_choices stores the variant active at
+      // time of each answer; for the per-pair summary we keep the LAST active).
+      if (area === "KNEE" && posture.variants && posture.pairKey) {
+        setKneeVariantChoices(prev => ({ ...prev, [posture.pairKey]: kneeCurrentVariant }));
+      }
+
       if (isLastQ && !crossoverTriggered) {
         const target = checkCrossover(area, newAnswers);
         if (target) {
@@ -1378,16 +1831,30 @@ export default function VinysDiagnostic({ onComplete, initialArea = null }) {
         setShowingVideo(true);
       } else {
         const resolveArea = crossoverTriggered ? crossoverTarget : area;
-        const scores = calculateScores(newAnswers, allPostures);
-        const output = resolveProfile(resolveArea, scores, newAnswers, irritability);
+        let output;
+        if (resolveArea === "KNEE") {
+          // Knee v2 path (spec §6–§8). Routes through kneeAssessmentV2Scorer
+          // with the recorded variant choices + the answer to the final
+          // irritability question.
+          const irrAns = newAnswers["knee_irritability_q"] || "Comfortable";
+          output = kneeAssessmentV2Scorer(
+            newAnswers,
+            kneeVariantChoices,
+            kneeVariantSwitches,
+            irrAns,
+          );
+        } else {
+          const scores = calculateScores(newAnswers, allPostures);
+          output = resolveProfile(resolveArea, scores, newAnswers, irritability);
+        }
         const result = {
           ...output,
           area: resolveArea,
           originalArea: crossoverTriggered ? area : null,
           crossoverTriggered,
-          irritability,
+          irritability: resolveArea === "KNEE" ? output.irritability : irritability,
           acuity,
-          mode: getModeFromIrritability(irritability),
+          mode: getModeFromIrritability(resolveArea === "KNEE" ? output.irritability : irritability),
           redFlagsPassed: true,
         };
         setDiagnosticOutput(result);
@@ -1435,6 +1902,72 @@ export default function VinysDiagnostic({ onComplete, initialArea = null }) {
       );
     }
 
+    // --- Knee v2 irritability question (spec §7.1) — single screen, no video ---
+    if (posture.isIrritabilityQ) {
+      return (
+        <Shell>
+          <span className="inline-block px-3.5 py-1 rounded-full bg-muted text-xs font-bold uppercase tracking-wider mb-6" style={{ color: "#888" }}>
+            Final reflection
+          </span>
+          <h2 className="text-[22px] font-bold text-foreground leading-snug mb-7">{q.text}</h2>
+          <div className="space-y-2.5">
+            {q.opts.map((opt, i) => (
+              <OptionTile key={i} label={opt.t} selected={selected === opt.t} onClick={() => {
+                if (transitioningRef.current) return;
+                transitioningRef.current = true;
+                setSelected(opt.t);
+                setTimeout(() => { handleAnswer(opt.t); transitioningRef.current = false; }, 250);
+              }} />
+            ))}
+          </div>
+        </Shell>
+      );
+    }
+
+    // --- Knee v2 variant chooser (spec §3) — shown on entry to a paired posture ---
+    if (area === "KNEE" && posture.variants && kneeShowingVariantChooser) {
+      const sup = posture.variants.supported;
+      const ind = posture.variants.independent;
+      return (
+        <Shell>
+          <span className="inline-block px-3.5 py-1 rounded-full bg-muted text-xs font-bold uppercase tracking-wider mb-3" style={{ color: "#888" }}>
+            {posture.pairLabel}
+          </span>
+          <h2 className="text-[22px] font-bold text-foreground leading-snug mb-2">{posture.name}</h2>
+          <p className="text-[14px] text-muted-foreground leading-[1.6] mb-6">{posture.subtitle}</p>
+          <p className="text-[13px] text-muted-foreground leading-[1.6] mb-4">Choose the variant that feels right today. You can switch during the movement if needed.</p>
+          <div className="space-y-3">
+            <button
+              onClick={() => {
+                if (transitioningRef.current) return;
+                transitioningRef.current = true;
+                setKneeCurrentVariant("supported");
+                setTimeout(() => { setKneeShowingVariantChooser(false); transitioningRef.current = false; }, 200);
+              }}
+              className={`w-full text-left p-4 rounded-[12px] border-2 transition-all ${kneeCurrentVariant === "supported" ? "border-secondary bg-secondary/10" : "border-border bg-card"}`}
+            >
+              <div className="text-[12px] font-bold uppercase tracking-wider text-muted-foreground mb-1">Supported variant <span className="ml-2 normal-case text-[11px] text-secondary">(recommended)</span></div>
+              <div className="text-[16px] font-bold text-foreground mb-1">{sup.name}</div>
+              <div className="text-[13px] text-muted-foreground leading-[1.55]">{sup.how}</div>
+            </button>
+            <button
+              onClick={() => {
+                if (transitioningRef.current) return;
+                transitioningRef.current = true;
+                setKneeCurrentVariant("independent");
+                setTimeout(() => { setKneeShowingVariantChooser(false); transitioningRef.current = false; }, 200);
+              }}
+              className={`w-full text-left p-4 rounded-[12px] border-2 transition-all ${kneeCurrentVariant === "independent" ? "border-secondary bg-secondary/10" : "border-border bg-card"}`}
+            >
+              <div className="text-[12px] font-bold uppercase tracking-wider text-muted-foreground mb-1">Independent variant</div>
+              <div className="text-[16px] font-bold text-foreground mb-1">{ind.name}</div>
+              <div className="text-[13px] text-muted-foreground leading-[1.55]">{ind.how}</div>
+            </button>
+          </div>
+        </Shell>
+      );
+    }
+
     // --- VIDEO / INSTRUCTIONS sub-phase ---
     if (showingVideo) {
       const cleanSubtitle = posture.subtitle ? posture.subtitle.replace(/★.*/, "").trim() : "";
@@ -1442,7 +1975,7 @@ export default function VinysDiagnostic({ onComplete, initialArea = null }) {
         <div style={{ position: "fixed", inset: 0, zIndex: 50, background: "#000", display: "flex", flexDirection: "column" }}>
           {/* Full-viewport video */}
           <video
-            src={posture.videoSrc || universalVideo}
+            src={postureVideoSrc || posture.videoSrc || universalVideo}
             autoPlay
             loop
             muted
@@ -1463,7 +1996,21 @@ export default function VinysDiagnostic({ onComplete, initialArea = null }) {
               <span style={{ fontSize: 12, fontWeight: 700, color: "rgba(255,255,255,0.7)", letterSpacing: 1 }}>
                 Posture {postureIdx + 1} of {progressTotal}
               </span>
-              <div style={{ display: "flex", gap: 8 }}>
+              <div style={{ display: "flex", gap: 8, alignItems: "center" }}>
+                {/* Knee v2 Switch variant button (spec §3.1 / §9 — no confirmation dialog) */}
+                {area === "KNEE" && posture.variants && (
+                  <button
+                    onClick={() => {
+                      const next = kneeCurrentVariant === "supported" ? "independent" : "supported";
+                      setKneeCurrentVariant(next);
+                      setKneeVariantSwitches((n) => n + 1);
+                    }}
+                    style={{ height: 36, padding: "0 14px", borderRadius: 18, background: "rgba(255,255,255,0.15)", backdropFilter: "blur(6px)", border: "none", cursor: "pointer", color: "white", fontSize: 13, fontWeight: 600, letterSpacing: 0.3 }}
+                    aria-label="Switch variant"
+                  >
+                    Switch variant
+                  </button>
+                )}
                 <button
                   onClick={() => setMuted(!isMuted)}
                   disabled={ttsLoading}
